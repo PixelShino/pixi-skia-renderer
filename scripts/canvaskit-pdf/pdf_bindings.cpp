@@ -28,6 +28,7 @@
 #include "include/core/SkDocument.h"
 #include "include/core/SkRefCnt.h"
 #include "include/core/SkStream.h"
+#include "include/core/SkString.h"
 #include "include/docs/SkPDFDocument.h"
 
 using namespace emscripten;

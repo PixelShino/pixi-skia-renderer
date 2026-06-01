@@ -1,0 +1,62 @@
+name: Build CanvasKit (PDF)
+
+# Собирает CanvasKit (WASM) с включённым Skia PDF backend в облаке GitHub.
+# Зачем в CI: локально сборка упирается в сетевую блокировку googlesource
+# (git-sync-deps), а раннеры GitHub имеют чистую сеть, Docker и достаточно времени.
+# Результат — canvaskit.{js,wasm} — коммитятся обратно в public/canvaskit/,
+# после чего Vercel передеплоит, и экспорт PDF заработает.
+#
+# Запуск: вкладка Actions → "Build CanvasKit (PDF)" → Run workflow.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      # Skia + зависимости + сборка занимают десятки ГБ — освобождаем место.
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap-storage: true
+
+      - name: Build CanvasKit with PDF
+        run: |
+          sudo mkdir -p /mnt/skiabuild
+          sudo chown "$USER":"$USER" /mnt/skiabuild
+          WORK=/mnt/skiabuild bash scripts/canvaskit-pdf/build-public.sh
+
+      - name: Stage artifacts into public/canvaskit
+        run: |
+          mkdir -p public/canvaskit
+          cp /mnt/skiabuild/output/canvaskit.js  public/canvaskit/canvaskit.js
+          cp /mnt/skiabuild/output/canvaskit.wasm public/canvaskit/canvaskit.wasm
+          ls -la public/canvaskit
+
+      # Дубликат как скачиваемый артефакт (на случай, если коммит не нужен).
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: canvaskit-pdf
+          path: public/canvaskit/*
+          if-no-files-found: error
+
+      - name: Commit artifacts back to repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/canvaskit/canvaskit.js public/canvaskit/canvaskit.wasm
+          git commit -m "build: сборка CanvasKit с PDF backend (CI)" || { echo "нет изменений"; exit 0; }
+          git push
