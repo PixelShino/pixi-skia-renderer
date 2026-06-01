@@ -47,11 +47,13 @@ docker run --rm \
     echo ">>> патчим git-sync-deps на последовательные клоны с ретраями"
     python3 /work/serialize-git-sync.py
 
-    # libavif (AVIF-декодер) не нужен для CanvasKit+PDF (compile.sh его не
-    # включает), а его зеркало на googlesource стабильно флапает с
-    # "remote transport reported error" — убираем из DEPS, чтобы не тянуть.
-    echo ">>> убираем ненужный libavif из DEPS"
-    sed -i "\#third_party/externals/libavif#d" DEPS
+    # Опциональные кодеки (libavif, libjxl) для CanvasKit+PDF не нужны
+    # (compile.sh их не включает), а их зеркала на googlesource стабильно
+    # флапают с "remote transport reported error" — убираем из DEPS заранее,
+    # чтобы не тратить ретраи. Остальные флапающие зависимости отсеет
+    # skip-on-failure из serialize-git-sync.py.
+    echo ">>> убираем ненужные кодеки (libavif, libjxl) из DEPS"
+    sed -i -e "\#third_party/externals/libavif#d" -e "\#third_party/externals/libjxl#d" DEPS
 
     echo ">>> git-sync-deps (последовательно; внешний цикл — страховка)"
     n=0

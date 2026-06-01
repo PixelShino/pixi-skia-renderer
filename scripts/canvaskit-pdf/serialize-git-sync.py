@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
-"""Патчит Skia tools/git-sync-deps: последовательные клоны + ретраи на каждую
-зависимость. Штатная реализация запускает поток на КАЖДЫЙ репозиторий сразу,
-что заваливает googlesource и ловит HTTP 429 / transport errors. Здесь делаем
-клоны по одному с бэкоффом — медленнее, но надёжно проходит rate-limit.
+"""Патчит Skia tools/git-sync-deps под нестабильную сеть к googlesource.
+
+Штатная реализация запускает поток на КАЖДЫЙ репозиторий сразу и падает целиком,
+если хоть один не склонировался. На зеркалах googlesource отдельные опциональные
+кодеки (libavif, libjxl и т.п.) периодически отдают "remote transport reported
+error". Здесь:
+  - клоны идут ПО ОДНОМУ (без burst-а, который провоцирует 429);
+  - каждая зависимость ретраится с бэкоффом;
+  - если всё равно не вышло — она ПРОПУСКАЕТСЯ (с логом), а не валит всю сборку.
+Пропущенные опциональные зависимости на сборку CanvasKit+PDF не влияют; если бы
+вдруг пропустилась нужная — сборка явно упадёт на gn/ninja.
 
 Запуск из корня чекаута Skia:  python3 serialize-git-sync.py
 """
@@ -10,6 +17,7 @@ import io
 import sys
 
 PATH = "tools/git-sync-deps"
+MARKER = "# PATCHED: sequential + skip-on-failure"
 
 OLD = '''def multithread(function, list_of_arg_lists):
   anything_failed = False
@@ -28,21 +36,28 @@ OLD = '''def multithread(function, list_of_arg_lists):
     raise Exception("Thread failure detected")'''
 
 NEW = '''def multithread(function, list_of_arg_lists):
+  ''' + MARKER + '''
   import time
+  skipped = []
   for args in list_of_arg_lists:
-    for _attempt in range(8):
+    ok = False
+    for _attempt in range(6):
       try:
         function(*args)
+        ok = True
         break
       except Exception:
-        if _attempt == 7:
-          raise
-        time.sleep(25)'''
+        time.sleep(20)
+    if not ok:
+      skipped.append(args)
+      print("SKIP (не склонировался после ретраев): %r" % (args,), flush=True)
+  if skipped:
+    print("git-sync-deps: пропущено %d зависимостей" % len(skipped), flush=True)'''
 
 with io.open(PATH, "r", encoding="utf-8") as f:
     src = f.read()
 
-if NEW.splitlines()[1].strip() in src:
+if MARKER in src:
     print("git-sync-deps уже пропатчен")
     sys.exit(0)
 
@@ -52,4 +67,4 @@ if OLD not in src:
 
 with io.open(PATH, "w", encoding="utf-8") as f:
     f.write(src.replace(OLD, NEW))
-print("git-sync-deps пропатчен на последовательные клоны с ретраями")
+print("git-sync-deps пропатчен: последовательно + пропуск упавших")
