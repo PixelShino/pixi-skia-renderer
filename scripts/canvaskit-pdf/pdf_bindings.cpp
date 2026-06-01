@@ -21,17 +21,35 @@
 #include <emscripten/val.h>
 
 #include <cstdint>
+#include <memory>
 #include <vector>
 
+#include "include/codec/SkCodec.h"
+#include "include/codec/SkJpegDecoder.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkData.h"
 #include "include/core/SkDocument.h"
+#include "include/core/SkPixmap.h"
 #include "include/core/SkRefCnt.h"
 #include "include/core/SkStream.h"
 #include "include/core/SkString.h"
 #include "include/docs/SkPDFDocument.h"
+#include "include/encode/SkJpegEncoder.h"
 
 using namespace emscripten;
+
+// Skia PDF backend требует JPEG decoder/encoder (растровые изображения, напр.
+// спрайты, вкладываются в PDF как JPEG). В canvaskit-сборке дефолтные
+// SkPDF::JPEG::Decode/Encode вырезаны (nullptr) → SkPDF аварийно завершается.
+// Прокидываем реальные кодеки сами (jpeg включён в сборке canvaskit).
+static std::unique_ptr<SkCodec> PdfJpegDecode(sk_sp<const SkData> data) {
+    return SkJpegDecoder::Decode(std::move(data));
+}
+static bool PdfJpegEncode(SkWStream* dst, const SkPixmap& src, int quality) {
+    SkJpegEncoder::Options options;
+    options.fQuality = quality;
+    return SkJpegEncoder::Encode(dst, src, options);
+}
 
 // Держим поток, документ и финальные байты вместе. Байты копируем в член
 // `bytes`, чтобы typed_memory_view ссылался на живую память (SkData,
@@ -42,6 +60,8 @@ public:
         SkPDF::Metadata md;
         md.fTitle = SkString("Pixi → Skia export");
         md.fCreator = SkString("pixi-skia-renderer (CanvasKit PDF)");
+        md.jpegDecoder = &PdfJpegDecode;
+        md.jpegEncoder = &PdfJpegEncode;
         fDoc = SkPDF::MakeDocument(&fStream, md);
     }
 
