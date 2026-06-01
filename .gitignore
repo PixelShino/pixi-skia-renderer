@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# claude / ai docs (внутренние, не для репозитория)
+CLAUDE.md
+.claude/
+.claude-docs/
+
+# verification artifacts (скриншоты/playwright прогоны)
+.playwright-mcp/
+verify-*.png

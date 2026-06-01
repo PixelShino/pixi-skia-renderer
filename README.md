@@ -1,36 +1,111 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pixi.js → Skia Renderer
 
-## Getting Started
+Приложение на TypeScript, объединяющее **`pixi.js-legacy`** и **Skia (CanvasKit/WASM)**:
+собственная обёртка отрисовывает дерево `PIXI.Container` средствами Skia на втором
+канвасе и экспортирует сцену в **векторный PDF** через Skia PDF backend.
 
-First, run the development server:
+Слева сцена рендерится штатным canvas-рендерером Pixi (`forceCanvas`), справа — та же
+сцена, отрисованная через Skia. Pointer-события работают на обоих канвасах.
+
+## Стек
+
+- Next.js 16 (App Router) + React 19, TypeScript (strict)
+- `pixi.js-legacy@7.2.4` (`PIXI.Application` с `forceCanvas: true`)
+- `canvaskit-wasm` (Skia) — стоковая сборка с CDN либо своя сборка с PDF backend
+- Tailwind CSS 4
+
+## Запуск
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+pnpm dev          # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Прочие команды:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+pnpm build        # продакшен-сборка + проверка типов
+pnpm start        # запуск собранного приложения
+pnpm lint         # ESLint
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Возможности
 
-## Learn More
+- **Обёртка `convertPixiContainerToSkia`** (`app/shared/pixi-skia-bridge/`): рекурсивный
+  обход дерева с накоплением трансформаций (translate/rotate/scale), поддержка
+  `PIXI.Graphics` (`drawRect`, `drawRoundedRect`, `drawCircle`, `drawEllipse`,
+  `drawPolygon`, `moveTo`/`lineTo` с cap/join) и `PIXI.Sprite` (PNG).
+- **События** `pointerdown` / `pointerup` на обоих канвасах. На Skia-канвасе —
+  через штатный hit-test Pixi (`EventBoundary.hitTest`).
+- **Интерактивность**: переключение сцен-пресетов (кнопки + авто-прокрутка по таймеру),
+  кнопка «Сгенерировать случайную фигуру/линию».
+- **Экспорт в векторный PDF** через Skia PDF backend (см. ниже).
 
-To learn more about Next.js, take a look at the following resources:
+## Экспорт в PDF (Skia PDF backend)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Результат — **векторный** PDF (та же обёртка рисует в канвас страницы PDF-документа,
+графика транслируется в векторные команды Skia).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+> ⚠️ Стоковый `canvaskit-wasm` собран без PDF backend. Для экспорта нужна **своя
+> сборка CanvasKit** с `skia_enable_pdf=true` и биндингом `MakePDFDocument`.
 
-## Deploy on Vercel
+### Сборка CanvasKit с PDF
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Скрипты в `scripts/canvaskit-pdf/`:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `pdf_bindings.cpp` — embind-обёртка над Skia PDF backend (`MakePDFDocument`,
+  `beginPage`/`endPage`/`close`).
+- `build-public.sh` — сборка в Docker на публичном образе `emscripten/emsdk`
+  (клонирует Skia, включает PDF, добавляет биндинг, компилирует).
+- `build.sh` — вариант на официальном образе `gcr.io/skia-public/canvaskit-emsdk`
+  (требует Google-авторизации: `gcloud auth login && gcloud auth configure-docker`).
+
+```bash
+# нужен Docker; ~30–80 ГБ на диске, ~40–90 мин
+WORK=/d/skiabuild bash scripts/canvaskit-pdf/build-public.sh
+```
+
+Готовые `canvaskit.js` + `canvaskit.wasm` положить в `public/canvaskit/` и включить
+локальную сборку флагом окружения:
+
+```bash
+# .env.local
+NEXT_PUBLIC_USE_LOCAL_CANVASKIT=1
+```
+
+После этого кнопка «Экспорт в PDF» становится активной и скачивает `scene.pdf`.
+Без флага приложение работает на стоковом CanvasKit с CDN (сцена рисуется, экспорт
+PDF недоступен).
+
+## Архитектура
+
+```
+app/
+  page.tsx                       UI: переключение сцен, генерация, экспорт, лог
+  components/
+    PixiCanvas.tsx               PIXI.Application (forceCanvas), управление сценами
+    SkiaCanvas.tsx               загрузка CanvasKit, рендер по тикеру, события, экспорт
+  shared/
+    scenes.ts                    сцены-пресеты (вкл. пример из ТЗ) + генератор фигур
+    pixi-skia-bridge/
+      index.ts                   convertPixiContainerToSkia + PixiSkiaRenderer
+      renderer.ts                рекурсивный рендер дерева (с кешем изображений)
+      graphics.ts                Graphics → Skia (формы, заливка, обводка)
+      sprite.ts                  Sprite → Skia (drawImageRect)
+      transform.ts               матрица Pixi → Skia
+      color.ts                   цвет Pixi → Skia
+      events.ts                  pointer-события на Skia-канвасе (hit-test)
+    canvaskit/
+      load.ts                    загрузка CanvasKit (локальная сборка / CDN)
+      exportPdf.ts               экспорт сцены в PDF
+      types.ts                   типы PDF backend
+scripts/
+  canvaskit-pdf/                 сборка CanvasKit с PDF backend
+  gen-sample-png.mjs             генерация public/sample.png для спрайта
+```
+
+## Деплой
+
+Next.js — на любом бесплатном хостинге (например, **Vercel**). Для экспорта PDF в
+проде положить `public/canvaskit/canvaskit.{js,wasm}` и задать
+`NEXT_PUBLIC_USE_LOCAL_CANVASKIT=1` в переменных окружения.
