@@ -1,7 +1,7 @@
 import * as PIXI from "pixi.js-legacy";
 
-/** Колбэк для вывода событий в UI-лог. */
-export type LogFn = (message: string) => void;
+/** Колбэк для вывода событий в UI-лог. `color` — цвет элемента (CSS hex). */
+export type LogFn = (message: string, color?: string) => void;
 
 export interface Scene {
   readonly name: string;
@@ -9,12 +9,57 @@ export interface Scene {
   build: (onLog: LogFn) => PIXI.Container;
 }
 
-/** Делает объект интерактивным и логирует pointer-события (работает на обоих канвасах). */
+/** Pixi-число цвета (0xrrggbb) → CSS-строка `#rrggbb`. */
+function colorToCss(n: number): string {
+  return `#${(n & 0xffffff).toString(16).padStart(6, "0")}`;
+}
+
+/** Цвет графики для подсветки лога: первая заливка, иначе первая обводка. */
+function graphicsColor(g: PIXI.Graphics): string | undefined {
+  for (const d of g.geometry.graphicsData) {
+    if (d.fillStyle?.visible) return colorToCss(d.fillStyle.color as number);
+  }
+  for (const d of g.geometry.graphicsData) {
+    if (d.lineStyle?.visible && d.lineStyle.width > 0)
+      return colorToCss(d.lineStyle.color as number);
+  }
+  return undefined;
+}
+
+/** Есть ли у графики видимая заливка (иначе это чистая обводка — линия). */
+function hasFill(g: PIXI.Graphics): boolean {
+  return g.geometry.graphicsData.some((d) => d.fillStyle?.visible);
+}
+
+/**
+ * Делает объект интерактивным и логирует pointer-события (работает на обоих
+ * канвасах). Цвет для подсветки лога берётся из графики автоматически.
+ *
+ * У графики без заливки (линии) нет fill-геометрии, и штатный hit-test Pixi её
+ * не ловит, — поэтому задаём `hitArea` по локальным границам с небольшим
+ * запасом, чтобы по линиям можно было кликать.
+ */
 function makeInteractive(obj: PIXI.DisplayObject, label: string, onLog: LogFn): void {
   obj.eventMode = "static";
   obj.cursor = "pointer";
-  obj.on("pointerdown", () => onLog(`${label} pointerdown!`));
-  obj.on("pointerup", () => onLog(`${label} pointerup!`));
+
+  let color: string | undefined;
+  if (obj instanceof PIXI.Graphics) {
+    color = graphicsColor(obj);
+    if (!hasFill(obj)) {
+      const b = obj.getLocalBounds();
+      const pad = 8;
+      obj.hitArea = new PIXI.Rectangle(
+        b.x - pad,
+        b.y - pad,
+        b.width + pad * 2,
+        b.height + pad * 2,
+      );
+    }
+  }
+
+  obj.on("pointerdown", () => onLog(`${label} pointerdown!`, color));
+  obj.on("pointerup", () => onLog(`${label} pointerup!`, color));
 }
 
 /** Точки звезды (чередование внешнего/внутреннего радиуса) вокруг (0,0). */
@@ -45,11 +90,11 @@ function makeSprite(
 }
 
 /**
- * Сцена 1 — пример из ТЗ: вложенный контейнер с линиями (g3, g4),
+ * Сцена 1 — пример из ТЗ (НЕ менять): вложенный контейнер с линиями (g3, g4),
  * эллипс (g1), прямоугольник со скейлом (g2) + Sprite (PNG).
  */
 const sceneFromSpec: Scene = {
-  name: "Сцена из ТЗ",
+  name: "Эталон ТЗ",
   build(onLog) {
     const main = new PIXI.Container();
     const sub = new PIXI.Container();
@@ -86,30 +131,42 @@ const sceneFromSpec: Scene = {
   },
 };
 
-/** Сцена 2 — набор фигур с разными трансформациями + спрайт. */
+/** Сцена 2 — галерея примитивов с разными трансформациями + спрайт. */
 const sceneShapes: Scene = {
-  name: "Фигуры и спрайт",
+  name: "Фигуры",
   build(onLog) {
     const main = new PIXI.Container();
 
     const star = new PIXI.Graphics();
-    star.beginFill("#22c55e").drawPolygon(starPoints(5, 70, 30)).endFill();
-    star.position.set(160, 150);
+    star.beginFill("#22c55e").drawPolygon(starPoints(5, 64, 28)).endFill();
+    star.position.set(140, 130);
     star.angle = 10;
     makeInteractive(star, "star", onLog);
 
     const rrect = new PIXI.Graphics();
     rrect.beginFill("#f59e0b").drawRoundedRect(-60, -40, 120, 80, 18).endFill();
     rrect.lineStyle(6, "#7c2d12", 1).drawRoundedRect(-60, -40, 120, 80, 18);
-    rrect.position.set(420, 130);
+    rrect.position.set(450, 120);
     rrect.angle = -8;
     rrect.scale.set(1.2, 1);
     makeInteractive(rrect, "rrect", onLog);
 
-    const sprite = makeSprite(300, 360, 1, 18);
+    const circle = new PIXI.Graphics();
+    circle.beginFill("#06b6d4").drawCircle(0, 0, 46).endFill();
+    circle.lineStyle(5, "#ecfeff", 1).drawCircle(0, 0, 46);
+    circle.position.set(480, 350);
+    makeInteractive(circle, "circle", onLog);
+
+    const triangle = new PIXI.Graphics();
+    triangle.beginFill("#a855f7").drawPolygon([0, -44, 40, 32, -40, 32]).endFill();
+    triangle.position.set(150, 370);
+    triangle.angle = -12;
+    makeInteractive(triangle, "triangle", onLog);
+
+    const sprite = makeSprite(300, 250, 0.95, 16);
     makeInteractive(sprite, "sprite", onLog);
 
-    main.addChild(star, rrect, sprite);
+    main.addChild(star, rrect, circle, triangle, sprite);
     return main;
   },
 };
@@ -137,13 +194,65 @@ const sceneLines: Scene = {
   },
 };
 
-export const SCENES: Scene[] = [sceneFromSpec, sceneShapes, sceneLines];
+/**
+ * Сцена 4 — спираль из вложенных контейнеров. Каждое звено сдвинуто, повёрнуто
+ * и уменьшено относительно родителя; глубина вложенности 24 — наглядная проверка
+ * накопления трансформаций по дереву (ключевое требование обёртки из ТЗ).
+ */
+const sceneNested: Scene = {
+  name: "Спираль",
+  build(onLog) {
+    // Корень оставляем в начале координат, чтобы добавленные случайные фигуры
+    // (они задаются в абсолютных координатах сцены) не уезжали за кадр.
+    const main = new PIXI.Container();
+    const spiral = new PIXI.Container();
+    spiral.position.set(300, 250);
+    main.addChild(spiral);
+
+    const palette = [
+      "#ef4444",
+      "#f59e0b",
+      "#eab308",
+      "#22c55e",
+      "#06b6d4",
+      "#a855f7",
+    ];
+
+    let parent: PIXI.Container = spiral;
+    for (let i = 0; i < 24; i++) {
+      const link = new PIXI.Container();
+      link.position.set(28, 0); // шаг наружу вдоль локальной оси X
+      link.rotation = 0.46; // поворот звена → закрутка в спираль
+      link.scale.set(0.94); // постепенное уменьшение
+
+      const square = new PIXI.Graphics();
+      square.beginFill(palette[i % palette.length]).drawRect(-11, -11, 22, 22).endFill();
+      square.angle = i * 16; // собственная подкрутка квадрата
+      makeInteractive(square, "звено", onLog);
+
+      link.addChild(square);
+      parent.addChild(link);
+      parent = link;
+    }
+    return main;
+  },
+};
+
+export const SCENES: Scene[] = [
+  sceneFromSpec,
+  sceneShapes,
+  sceneLines,
+  sceneNested,
+];
+
+/** Сквозной счётчик добавленных случайных фигур (для уникальных меток в логе). */
+let randomCounter = 0;
 
 /** Генерирует случайную фигуру или линию для добавления в текущий контейнер. */
 export function createRandomDisplayObject(onLog: LogFn): PIXI.Graphics {
   const g = new PIXI.Graphics();
   const color = Math.floor(Math.random() * 0xffffff);
-  const kind = Math.floor(Math.random() * 3);
+  const kind = Math.floor(Math.random() * 6);
 
   if (kind === 0) {
     g.beginFill(color).drawCircle(0, 0, 20 + Math.random() * 40).endFill();
@@ -151,6 +260,17 @@ export function createRandomDisplayObject(onLog: LogFn): PIXI.Graphics {
     const w = 40 + Math.random() * 80;
     const h = 40 + Math.random() * 80;
     g.beginFill(color).drawRect(-w / 2, -h / 2, w, h).endFill();
+  } else if (kind === 2) {
+    const w = 50 + Math.random() * 80;
+    const h = 40 + Math.random() * 70;
+    g.beginFill(color).drawRoundedRect(-w / 2, -h / 2, w, h, 12).endFill();
+  } else if (kind === 3) {
+    g.beginFill(color)
+      .drawEllipse(0, 0, 30 + Math.random() * 40, 18 + Math.random() * 30)
+      .endFill();
+  } else if (kind === 4) {
+    const r = 28 + Math.random() * 32;
+    g.beginFill(color).drawPolygon([0, -r, r * 0.9, r * 0.7, -r * 0.9, r * 0.7]).endFill();
   } else {
     g.lineStyle({
       width: 4 + Math.random() * 10,
@@ -163,6 +283,6 @@ export function createRandomDisplayObject(onLog: LogFn): PIXI.Graphics {
 
   g.position.set(60 + Math.random() * 480, 60 + Math.random() * 380);
   g.angle = Math.random() * 360;
-  makeInteractive(g, "random", onLog);
+  makeInteractive(g, `random #${++randomCounter}`, onLog);
   return g;
 }

@@ -53,7 +53,7 @@ export default function PixiCanvas({ onReady, onLog }: PixiCanvasProps) {
     hostRef.current.appendChild(app.view as HTMLCanvasElement);
 
     const mountScene = (index: number) => {
-      const next = SCENES[index].build((m) => onLogRef.current(m));
+      const next = SCENES[index].build((m, color) => onLogRef.current(m, color));
       if (sceneRef.current) {
         app.stage.removeChild(sceneRef.current);
         sceneRef.current.destroy({ children: true });
@@ -70,7 +70,7 @@ export default function PixiCanvas({ onReady, onLog }: PixiCanvasProps) {
       addRandomObject: () => {
         if (!sceneRef.current) return;
         sceneRef.current.addChild(
-          createRandomDisplayObject((m) => onLogRef.current(m)),
+          createRandomDisplayObject((m, color) => onLogRef.current(m, color)),
         );
       },
     });
