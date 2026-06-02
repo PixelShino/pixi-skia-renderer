@@ -17,16 +17,16 @@
 ## Запуск
 
 ```bash
-pnpm install
-pnpm dev          # http://localhost:3000
+npm install
+npm run dev       # http://localhost:3000
 ```
 
 Прочие команды:
 
 ```bash
-pnpm build        # продакшен-сборка + проверка типов
-pnpm start        # запуск собранного приложения
-pnpm lint         # ESLint
+npm run build     # продакшен-сборка + проверка типов
+npm start         # запуск собранного приложения
+npm run lint      # ESLint
 ```
 
 ## Возможности
