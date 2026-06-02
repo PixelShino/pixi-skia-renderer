@@ -43,7 +43,8 @@ using namespace emscripten;
 // SkPDF::JPEG::Decode/Encode вырезаны (nullptr) → SkPDF аварийно завершается.
 // Прокидываем реальные кодеки сами (jpeg включён в сборке canvaskit).
 static std::unique_ptr<SkCodec> PdfJpegDecode(sk_sp<const SkData> data) {
-    return SkJpegDecoder::Decode(std::move(data));
+    SkCodec::Result result;
+    return SkJpegDecoder::Decode(std::move(data), &result);
 }
 static bool PdfJpegEncode(SkWStream* dst, const SkPixmap& src, int quality) {
     SkJpegEncoder::Options options;
