@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Вендоренная сборка CanvasKit (минифицированная Emscripten-обвязка) — не наш код.
+    "public/canvaskit/**",
   ]),
 ]);
 
