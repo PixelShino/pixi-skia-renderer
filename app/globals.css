@@ -1,1 +1,63 @@
 @import "tailwindcss";
+
+/*
+ * Дизайн-токены (Tailwind v4 @theme → утилиты bg-ink-900, text-accent и т.д.).
+ * Нейтрали тёплого почти-чёрного тона (тинт в hue 70) — тёплый хром против
+ * холодных канвасов (#1f2430) даёт «калибровочный» температурный контраст.
+ * Единственный акцент — янтарь (главное действие + индикаторы live/готов).
+ */
+@theme {
+  --color-scene: #1f2430;
+
+  --color-ink-950: oklch(0.165 0.006 70);
+  --color-ink-900: oklch(0.205 0.006 70);
+  --color-ink-850: oklch(0.245 0.007 70);
+  --color-ink-800: oklch(0.300 0.007 70);
+  --color-ink-700: oklch(0.380 0.008 70);
+  --color-ink-600: oklch(0.490 0.009 70);
+  --color-ink-500: oklch(0.610 0.010 70);
+  --color-ink-400: oklch(0.720 0.009 70);
+  --color-ink-300: oklch(0.820 0.007 70);
+  --color-ink-200: oklch(0.895 0.006 70);
+  --color-ink-100: oklch(0.960 0.004 70);
+
+  --color-accent: oklch(0.800 0.135 78);
+  --color-accent-hover: oklch(0.860 0.140 80);
+  --color-accent-ink: oklch(0.260 0.045 78);
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "JetBrains Mono", "Segoe UI Mono",
+    Menlo, Consolas, monospace;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    background: var(--color-ink-950);
+    color: var(--color-ink-200);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
+  }
+}
+
+/* Пульс индикатора live-синхронизации (только opacity — не дёргает layout). */
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+.animate-live {
+  animation: live-pulse 1.8s ease-in-out infinite;
+}

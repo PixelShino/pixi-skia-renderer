@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Pixi Skia Bridge",
-  description: "Rendering PIXI.Container via Skia with PDF export",
+  title: "pixi → skia · мост рендера",
+  description:
+    "Рендер дерева PIXI.Container средствами Skia (CanvasKit) с экспортом сцены в векторный PDF",
 };
 
 export default function RootLayout({
@@ -13,9 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru">
-      <body className="bg-neutral-900 text-neutral-100 min-h-screen">
-        {children}
-      </body>
+      <body className="min-h-screen antialiased">{children}</body>
     </html>
   );
 }
