@@ -4,16 +4,8 @@ import { applyPixiTransform, updateWorldTransform } from "./transform";
 import { drawGraphics } from "./graphics";
 import { drawSprite } from "./sprite";
 
-/**
- * Рендерер дерева `PIXI.Container` средствами Skia (CanvasKit).
- *
- * Один и тот же экземпляр используется и для отрисовки на экранный канвас,
- * и для экспорта в PDF (метод `render` принимает любой `Canvas` — экранный
- * или канвас страницы PDF-документа), что гарантирует идентичность сцены.
- *
- * Держит переиспользуемый `Paint` и кеш декодированных изображений спрайтов —
- * их нужно явно освобождать через `dispose()` (память в куче WASM).
- */
+// рендер дерева PIXI.Container в Skia; один экземпляр и на экран, и в PDF.
+// Paint и кеш SkImage живут в WASM-куче — освобождать через dispose().
 export class PixiSkiaRenderer {
   private readonly paint: Paint;
   private readonly imageCache = new Map<number, SkImage>();
@@ -23,9 +15,8 @@ export class PixiSkiaRenderer {
     this.paint.setAntiAlias(true);
   }
 
-  /** Рекурсивно отрисовывает контейнер и всех его потомков на канвас Skia. */
   render(canvas: Canvas, container: PIXI.Container): void {
-    // Гарантируем свежие матрицы независимо от рендер-цикла Pixi.
+    // матрицы могут устареть вне рендер-цикла Pixi
     updateWorldTransform(container);
     this.renderNode(canvas, container, 1);
   }
@@ -43,7 +34,7 @@ export class PixiSkiaRenderer {
     applyPixiTransform(canvas, node.localTransform);
 
     if (node instanceof PIXI.Sprite) {
-      // Sprite — частный случай Container, проверяем его раньше Container.
+      // Sprite — подкласс Container, проверять до Container
       drawSprite(this.ck, canvas, node, this.paint, worldAlpha, this.imageCache);
     } else if (node instanceof PIXI.Graphics) {
       drawGraphics(this.ck, canvas, node, this.paint, worldAlpha);
@@ -58,7 +49,6 @@ export class PixiSkiaRenderer {
     canvas.restore();
   }
 
-  /** Освобождает ресурсы CanvasKit (Paint и кешированные изображения). */
   dispose(): void {
     this.paint.delete();
     for (const image of this.imageCache.values()) image.delete();

@@ -14,13 +14,8 @@ export class PdfBackendUnavailableError extends Error {
   }
 }
 
-/**
- * Экспортирует `PIXI.Container` в ВЕКТОРНЫЙ PDF через Skia PDF backend.
- *
- * Использует тот же {@link PixiSkiaRenderer}, что и экранный рендер, но рисует
- * на канвасе страницы PDF-документа. Графика транслируется в векторные команды
- * Skia (drawPath/drawRect/...), поэтому в PDF попадает вектор, а не растр.
- */
+// экспорт PIXI.Container в ВЕКТОРНЫЙ PDF: тот же рендерер, что и на экран, но
+// рисует на канвасе страницы PDF -> в файл идёт вектор (drawPath/drawRect), не растр
 export function exportContainerToPdf(
   ck: CanvasKit,
   container: PIXI.Container,
@@ -33,12 +28,12 @@ export function exportContainerToPdf(
   const renderer = new PixiSkiaRenderer(ck);
   try {
     const pageCanvas = doc.beginPage(width, height);
-    // Фон под цвет экранной сцены (#1f2430), чтобы PDF совпадал с тем, что видно.
+    // фон под цвет сцены (#1f2430)
     pageCanvas.clear(ck.Color(31, 36, 48, 1));
     renderer.render(pageCanvas, container);
     doc.endPage();
 
-    // close() возвращает вид на C++-память — копируем немедленно.
+    // close() — view на память WASM
     const bytes = new Uint8Array(doc.close());
     return new Blob([bytes], { type: "application/pdf" });
   } finally {
@@ -47,7 +42,6 @@ export function exportContainerToPdf(
   }
 }
 
-/** Скачивает Blob как файл в браузере. */
 export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

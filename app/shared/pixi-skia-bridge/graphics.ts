@@ -2,17 +2,7 @@ import * as PIXI from "pixi.js-legacy";
 import type { CanvasKit, Canvas, Paint } from "canvaskit-wasm";
 import { toSkColor } from "./color";
 
-/**
- * Отрисовывает один `PIXI.Graphics` на канвасе Skia.
- *
- * Читает разобранную геометрию (`geometry.graphicsData`) — список примитивов,
- * накопленных вызовами `beginFill/drawRect/drawEllipse/moveTo/lineTo/lineStyle`.
- * Для каждого примитива отдельно применяются заливка (fillStyle) и обводка
- * (lineStyle). Матрица узла уже наложена на канвас вызывающей стороной.
- *
- * @param worldAlpha накопленная альфа дерева (умножается на альфу стиля).
- * @param paint      переиспользуемый Paint (чтобы не плодить объекты WASM).
- */
+// один PIXI.Graphics: для каждого примитива из graphicsData — заливка и обводка
 export function drawGraphics(
   ck: CanvasKit,
   canvas: Canvas,
@@ -23,7 +13,6 @@ export function drawGraphics(
   for (const data of graphics.geometry.graphicsData) {
     const { shape, fillStyle, lineStyle } = data;
 
-    // 1. Заливка
     if (fillStyle.visible) {
       paint.setStyle(ck.PaintStyle.Fill);
       paint.setColor(
@@ -32,7 +21,7 @@ export function drawGraphics(
       drawShape(ck, canvas, paint, shape, true);
     }
 
-    // 2. Обводка (линии и контуры)
+    // обводка — поверх заливки
     if (lineStyle.visible && lineStyle.width > 0) {
       paint.setStyle(ck.PaintStyle.Stroke);
       paint.setStrokeWidth(lineStyle.width);
@@ -47,7 +36,6 @@ export function drawGraphics(
   }
 }
 
-/** Рисует конкретную форму Pixi соответствующим примитивом Skia. */
 function drawShape(
   ck: CanvasKit,
   canvas: Canvas,
@@ -87,13 +75,12 @@ function drawShape(
     case PIXI.SHAPES.POLY: {
       const poly = shape as PIXI.Polygon;
       const pts = poly.points;
-      if (pts.length < 4) break; // меньше 2 точек — рисовать нечего
-      // В canvaskit-wasm 0.41.1 у Path нет билдер-методов (moveTo/lineTo) —
-      // путь собираем фабрикой MakeFromCmds из verb-команд.
+      if (pts.length < 4) break;
+      // в canvaskit-wasm 0.41.1 у Path нет moveTo/lineTo — путь через MakeFromCmds
       const cmds: number[] = [ck.MOVE_VERB, pts[0], pts[1]];
       for (let i = 2; i < pts.length; i += 2)
         cmds.push(ck.LINE_VERB, pts[i], pts[i + 1]);
-      // Для заливки путь замыкаем всегда; для обводки — по флагу closeStroke.
+      // заливка — всегда замкнутый путь; обводка — по closeStroke
       if (isFill || poly.closeStroke) cmds.push(ck.CLOSE_VERB);
       const path = ck.Path.MakeFromCmds(cmds);
       if (path) {

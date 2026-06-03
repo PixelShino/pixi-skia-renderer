@@ -1,11 +1,7 @@
 import { Color } from "pixi.js-legacy";
 import type { CanvasKit, InputColor } from "canvaskit-wasm";
 
-/**
- * Переводит цвет Pixi (hex-число/строку) в цвет CanvasKit.
- * Использует современный класс `PIXI.Color` (не устаревший `utils.hex2rgb`).
- * Итоговая альфа = альфа стиля × накопленная worldAlpha узла дерева.
- */
+// цвет Pixi (hex) → цвет CanvasKit; итоговая альфа = альфа стиля × worldAlpha
 export function toSkColor(
   ck: CanvasKit,
   pixiColor: number | string,

@@ -8,12 +8,9 @@ import {
   type LogFn,
 } from "../shared/scenes";
 
-/** Императивный API канваса Pixi, отдаётся наверх через onReady. */
 export interface PixiApi {
   app: PIXI.Application;
-  /** Переключить активную сцену-пресет. */
   setSceneIndex: (index: number) => void;
-  /** Добавить случайную фигуру/линию в текущую сцену. */
   addRandomObject: () => void;
 }
 
@@ -25,15 +22,11 @@ interface PixiCanvasProps {
 const WIDTH = 600;
 const HEIGHT = 500;
 
-/**
- * Левый канвас: рендер сцены штатным canvas-рендерером Pixi (`forceCanvas`).
- * Владеет `PIXI.Application` и активной сценой; отдаёт наверх императивный API.
- */
 export default function PixiCanvas({ onReady, onLog }: PixiCanvasProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
   const sceneRef = useRef<PIXI.Container | null>(null);
-  // onLog держим в ref, чтобы пересоздание колбэка не перезапускало эффект.
+  // onLog в ref: пересоздание колбэка не должно перезапускать эффект
   const onLogRef = useRef(onLog);
   useEffect(() => {
     onLogRef.current = onLog;

@@ -1,21 +1,9 @@
 import * as PIXI from "pixi.js-legacy";
 import { updateWorldTransform } from "./transform";
 
-/**
- * Включает события `pointerdown` / `pointerup` на канвасе Skia.
- *
- * Skia-канвас — обычный `<canvas>` без Pixi-рендерера, поэтому DOM-события
- * ловим вручную, переводим координаты в систему сцены и прогоняем через
- * штатный hit-test Pixi (`EventBoundary.hitTest`). Найденному объекту
- * рассылаем `FederatedPointerEvent` тем же механизмом, что и Pixi-канвас, —
- * так срабатывают те же обработчики `on('pointerdown'|'pointerup')`.
- *
- * Координаты считаем напрямую из `getBoundingClientRect`, НЕ подменяя
- * `events.domElement`: его сеттер пересоздаёт листенеры и сорвал бы события
- * родного Pixi-канваса.
- *
- * @returns функция отписки.
- */
+// pointer-события для Skia-канваса: он без Pixi-рендерера, поэтому DOM-события
+// ловятся вручную и прогоняются через тот же hitTest/EventBoundary, что и Pixi.
+// events.domElement рендерера НЕ трогать — его сеттер пересоздаёт листенеры Pixi-канваса.
 export function attachSkiaPointerEvents(
   skiaCanvas: HTMLCanvasElement,
   app: PIXI.Application,
@@ -28,14 +16,13 @@ export function attachSkiaPointerEvents(
     const rect = skiaCanvas.getBoundingClientRect();
     const resolution = app.renderer.resolution;
 
-    // CSS-координаты → пиксели бэкстора канваса (с учётом масштабирования) →
-    // координаты сцены (делим на resolution).
+    // CSS-координаты → пиксели канваса → координаты сцены (÷ resolution)
     const point = new PIXI.Point(
       (((e.clientX - rect.left) / rect.width) * skiaCanvas.width) / resolution,
       (((e.clientY - rect.top) / rect.height) * skiaCanvas.height) / resolution,
     );
 
-    // Обновляем worldTransform перед хит-тестом (Pixi-рендерер мог не прогнать сцену).
+    // worldTransform перед hitTest — Pixi мог не прогнать сцену
     updateWorldTransform(stage);
 
     const boundary = events.rootBoundary;

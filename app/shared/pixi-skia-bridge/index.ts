@@ -4,14 +4,8 @@ import { PixiSkiaRenderer } from "./renderer";
 
 export { PixiSkiaRenderer } from "./renderer";
 
-/**
- * Обёртка из ТЗ: отрисовывает `PIXI.Container` на канвасе Skia.
- *
- * Создаёт временный рендерер на один вызов (без кеша изображений между
- * кадрами). Для покадрового рендера со спрайтами выгоднее держать постоянный
- * экземпляр {@link PixiSkiaRenderer} и звать `render()` — так декодированные
- * текстуры кешируются.
- */
+// обёртка из ТЗ: разовый рендер контейнера в Skia. Для покадрового рендера
+// лучше держать PixiSkiaRenderer — он кеширует текстуры между кадрами.
 export const convertPixiContainerToSkia = (
   container: PIXI.Container,
   skCanvas: Canvas,

@@ -11,17 +11,13 @@ import {
   downloadBlob,
 } from "../shared/canvaskit/exportPdf";
 
-/** API канваса Skia, отдаётся наверх через onReady. */
 export interface SkiaApi {
-  /** Доступен ли экспорт PDF (зависит от наличия PDF backend в сборке CanvasKit). */
   hasPdf: boolean;
-  /** Экспортировать текущую сцену в PDF и скачать файл. */
   exportPdf: () => void;
 }
 
 interface SkiaCanvasProps {
-  /** Приложение Pixi — источник сцены (рендерим его stage). */
-  app: PIXI.Application | null;
+  app: PIXI.Application | null; // источник сцены — рендерим его stage
   onReady: (api: SkiaApi) => void;
   onLog: (message: string) => void;
 }
@@ -30,11 +26,7 @@ const WIDTH = 600;
 const HEIGHT = 500;
 const CANVAS_ID = "skia-canvas";
 
-/**
- * Правый канвас: та же сцена Pixi, отрисованная через Skia (CanvasKit).
- * Синхронизируется с Pixi по тикеру, поддерживает pointer-события и экспорт
- * сцены в векторный PDF.
- */
+// та же сцена Pixi, отрисованная через Skia; синхрон по тикеру Pixi
 export default function SkiaCanvas({ app, onReady, onLog }: SkiaCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const onLogRef = useRef(onLog);

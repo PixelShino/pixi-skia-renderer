@@ -1,20 +1,16 @@
 import * as PIXI from "pixi.js-legacy";
 
-/** Колбэк для вывода событий в UI-лог. `color` — цвет элемента (CSS hex). */
 export type LogFn = (message: string, color?: string) => void;
 
 export interface Scene {
   readonly name: string;
-  /** Строит свежий контейнер сцены (со своими обработчиками событий). */
   build: (onLog: LogFn) => PIXI.Container;
 }
 
-/** Pixi-число цвета (0xrrggbb) → CSS-строка `#rrggbb`. */
 function colorToCss(n: number): string {
   return `#${(n & 0xffffff).toString(16).padStart(6, "0")}`;
 }
 
-/** Цвет графики для подсветки лога: первая заливка, иначе первая обводка. */
 function graphicsColor(g: PIXI.Graphics): string | undefined {
   for (const d of g.geometry.graphicsData) {
     if (d.fillStyle?.visible) return colorToCss(d.fillStyle.color as number);
@@ -26,19 +22,10 @@ function graphicsColor(g: PIXI.Graphics): string | undefined {
   return undefined;
 }
 
-/** Есть ли у графики видимая заливка (иначе это чистая обводка — линия). */
 function hasFill(g: PIXI.Graphics): boolean {
   return g.geometry.graphicsData.some((d) => d.fillStyle?.visible);
 }
 
-/**
- * Делает объект интерактивным и логирует pointer-события (работает на обоих
- * канвасах). Цвет для подсветки лога берётся из графики автоматически.
- *
- * У графики без заливки (линии) нет fill-геометрии, и штатный hit-test Pixi её
- * не ловит, — поэтому задаём `hitArea` по локальным границам с небольшим
- * запасом, чтобы по линиям можно было кликать.
- */
 function makeInteractive(obj: PIXI.DisplayObject, label: string, onLog: LogFn): void {
   obj.eventMode = "static";
   obj.cursor = "pointer";
@@ -46,6 +33,7 @@ function makeInteractive(obj: PIXI.DisplayObject, label: string, onLog: LogFn): 
   let color: string | undefined;
   if (obj instanceof PIXI.Graphics) {
     color = graphicsColor(obj);
+    // линия без заливки: hit-test Pixi её не видит → hitArea по bbox
     if (!hasFill(obj)) {
       const b = obj.getLocalBounds();
       const pad = 8;
@@ -62,7 +50,6 @@ function makeInteractive(obj: PIXI.DisplayObject, label: string, onLog: LogFn): 
   obj.on("pointerup", () => onLog(`${label} pointerup!`, color));
 }
 
-/** Точки звезды (чередование внешнего/внутреннего радиуса) вокруг (0,0). */
 function starPoints(spikes: number, outer: number, inner: number): number[] {
   const pts: number[] = [];
   const step = Math.PI / spikes;
@@ -74,7 +61,6 @@ function starPoints(spikes: number, outer: number, inner: number): number[] {
   return pts;
 }
 
-/** Спрайт из тестового PNG с заданной трансформацией. */
 function makeSprite(
   x: number,
   y: number,
@@ -89,10 +75,7 @@ function makeSprite(
   return sprite;
 }
 
-/**
- * Сцена 1 — пример из ТЗ (НЕ менять): вложенный контейнер с линиями (g3, g4),
- * эллипс (g1), прямоугольник со скейлом (g2) + Sprite (PNG).
- */
+// эталонная сцена из ТЗ — не менять
 const sceneFromSpec: Scene = {
   name: "Эталон ТЗ",
   build(onLog) {
@@ -131,7 +114,6 @@ const sceneFromSpec: Scene = {
   },
 };
 
-/** Сцена 2 — галерея примитивов с разными трансформациями + спрайт. */
 const sceneShapes: Scene = {
   name: "Фигуры",
   build(onLog) {
@@ -171,7 +153,6 @@ const sceneShapes: Scene = {
   },
 };
 
-/** Сцена 3 — пучок линий (демонстрация stroke cap/join). */
 const sceneLines: Scene = {
   name: "Линии",
   build(onLog) {
@@ -194,16 +175,11 @@ const sceneLines: Scene = {
   },
 };
 
-/**
- * Сцена 4 — спираль из вложенных контейнеров. Каждое звено сдвинуто, повёрнуто
- * и уменьшено относительно родителя; глубина вложенности 24 — наглядная проверка
- * накопления трансформаций по дереву (ключевое требование обёртки из ТЗ).
- */
+// вложенные контейнеры (24 уровня) — проверка накопления трансформаций по дереву
 const sceneNested: Scene = {
   name: "Спираль",
   build(onLog) {
-    // Корень оставляем в начале координат, чтобы добавленные случайные фигуры
-    // (они задаются в абсолютных координатах сцены) не уезжали за кадр.
+    // спираль во вложенном контейнере, корень в (0,0): иначе случайные фигуры уедут за кадр
     const main = new PIXI.Container();
     const spiral = new PIXI.Container();
     spiral.position.set(300, 250);
@@ -221,13 +197,13 @@ const sceneNested: Scene = {
     let parent: PIXI.Container = spiral;
     for (let i = 0; i < 24; i++) {
       const link = new PIXI.Container();
-      link.position.set(28, 0); // шаг наружу вдоль локальной оси X
-      link.rotation = 0.46; // поворот звена → закрутка в спираль
-      link.scale.set(0.94); // постепенное уменьшение
+      link.position.set(28, 0);
+      link.rotation = 0.46;
+      link.scale.set(0.94);
 
       const square = new PIXI.Graphics();
       square.beginFill(palette[i % palette.length]).drawRect(-11, -11, 22, 22).endFill();
-      square.angle = i * 16; // собственная подкрутка квадрата
+      square.angle = i * 16;
       makeInteractive(square, "звено", onLog);
 
       link.addChild(square);
@@ -245,10 +221,8 @@ export const SCENES: Scene[] = [
   sceneNested,
 ];
 
-/** Сквозной счётчик добавленных случайных фигур (для уникальных меток в логе). */
-let randomCounter = 0;
+let randomCounter = 0; // id для меток random #N
 
-/** Генерирует случайную фигуру или линию для добавления в текущий контейнер. */
 export function createRandomDisplayObject(onLog: LogFn): PIXI.Graphics {
   const g = new PIXI.Graphics();
   const color = Math.floor(Math.random() * 0xffffff);

@@ -8,7 +8,6 @@ import { SCENES } from "./shared/scenes";
 interface LogEntry {
   time: string;
   message: string;
-  /** Цвет элемента, к которому относится событие (CSS hex). */
   color?: string;
 }
 
@@ -40,7 +39,7 @@ export default function Home() {
     [pixiApi, addLog],
   );
 
-  // Авто-прокрутка сцен по таймеру (вариант «прокрутка контейнеров» из ТЗ).
+  // авто-прокрутка сцен — вариант «прокрутка контейнеров» из ТЗ
   const sceneIndexRef = useRef(sceneIndex);
   useEffect(() => {
     sceneIndexRef.current = sceneIndex;
@@ -84,7 +83,6 @@ export default function Home() {
   );
 }
 
-/* ── Топ-бар: марка + статус PDF-бэкенда ──────────────────────────────── */
 function Header({ hasPdf, skiaReady }: { hasPdf?: boolean; skiaReady: boolean }) {
   const label = !skiaReady
     ? "инициализация Skia…"
@@ -114,7 +112,6 @@ function Header({ hasPdf, skiaReady }: { hasPdf?: boolean; skiaReady: boolean })
   );
 }
 
-/** Марка: контур (источник Pixi) + залитый квадрат (зеркало Skia). */
 function Mark() {
   return (
     <span className="relative block size-7" aria-hidden>
@@ -124,7 +121,6 @@ function Mark() {
   );
 }
 
-/* ── Тулбар: выбор сцены, авто-прокрутка, действия ────────────────────── */
 function Toolbar({
   sceneIndex,
   onSwitch,
@@ -202,7 +198,6 @@ function Toolbar({
   );
 }
 
-/* ── Рамка-«монитор» для канваса ──────────────────────────────────────── */
 function Viewport({
   engine,
   sub,
@@ -245,7 +240,6 @@ function Viewport({
   );
 }
 
-/** Регистрационные уголки — «калибровочная рамка» поверх канваса. */
 function Ticks() {
   const base = "pointer-events-none absolute size-3 border-ink-600/40";
   return (
@@ -258,7 +252,6 @@ function Ticks() {
   );
 }
 
-/* ── Консоль событий ──────────────────────────────────────────────────── */
 function Console({ logs, onClear }: { logs: LogEntry[]; onClear: () => void }) {
   return (
     <section className="overflow-hidden rounded-lg border border-ink-800 bg-ink-900">
@@ -298,11 +291,7 @@ function Console({ logs, onClear }: { logs: LogEntry[]; onClear: () => void }) {
   );
 }
 
-/**
- * Цвет элемента для подсветки лога, подтянутый к читаемости на тёмном фоне:
- * тёмные цвета подмешиваем к белому, чтобы строка не сливалась. Без цвета —
- * нейтральный (undefined → наследует класс text-ink-300).
- */
+// осветление тёмного цвета фигуры, чтобы строка лога читалась на тёмном фоне
 function legibleOnDark(hex?: string): string | undefined {
   const m = hex && /^#?([0-9a-f]{6})$/i.exec(hex);
   if (!m) return undefined;
@@ -311,7 +300,7 @@ function legibleOnDark(hex?: string): string | undefined {
   let b = parseInt(m[1].slice(4, 6), 16);
   const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   if (lum < 0.5) {
-    const t = ((0.5 - lum) / 0.5) * 0.75; // доля подмешивания белого
+    const t = ((0.5 - lum) / 0.5) * 0.75;
     r = Math.round(r + (255 - r) * t);
     g = Math.round(g + (255 - g) * t);
     b = Math.round(b + (255 - b) * t);
@@ -319,7 +308,6 @@ function legibleOnDark(hex?: string): string | undefined {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
-/* ── Примитивы состояния ──────────────────────────────────────────────── */
 function Dot({ on }: { on: boolean }) {
   return (
     <span
